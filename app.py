@@ -74,6 +74,10 @@ def train_model(csv_file='ipl.csv'):
         # Load dataset
         dataset = pd.read_csv(csv_file)
         
+        # Filter: Ignore data before 2015 (only use 2015 onwards)
+        dataset['date'] = pd.to_datetime(dataset['date'])
+        dataset = dataset[dataset['date'] >= '2015-01-01']
+        
         # Extract features and labels
         X = dataset.iloc[:,[7,8,9,12,13]].values
         y = dataset.iloc[:, 14].values
@@ -130,19 +134,8 @@ with st.spinner("🤖 Training model... (this may take a moment)"):
     model, scaler, X_test, y_test, y_pred = train_model(csv_file)
 
 if model is not None:
-    # Display metrics in sidebar
+    # Display metrics in sidebar (hidden - model info only when needed)
     st.sidebar.markdown("---")
-    st.sidebar.subheader("📊 Model Performance")
-    r2_score = model.score(scaler.transform(X_test), y_test) * 100
-    acc_10 = custom_accuracy(y_test, y_pred, 10)
-    acc_20 = custom_accuracy(y_test, y_pred, 20)
-    
-    col1, col2 = st.sidebar.columns(2)
-    with col1:
-        st.metric("R² Score", f"{r2_score:.1f}%")
-    with col2:
-        st.metric("Accuracy ±10", f"{acc_10:.1f}%")
-    st.sidebar.metric("Accuracy ±20", f"{acc_20:.1f}%")
     
     # Create tabs
     tab1, tab2, tab3 = st.tabs(["🎯 Predict Score", "📋 Examples", "📈 Model Info"])
@@ -173,25 +166,17 @@ if model is not None:
             predicted = predict_score(model, scaler, runs, wickets, overs, striker, non_striker)
             std_error = np.std(y_pred - y_test)
             
-            # Calculate upper bound only
+            # Calculate upper bound and average
             upper_bound = predicted + std_error
+            avg_score = (predicted + upper_bound) / 2
             
-            # Display result
-            col1, col2, col3 = st.columns(3)
+            # Display result - only average
+            st.metric("Expected Final Score", f"{avg_score:.0f} runs")
             
-            with col1:
-                st.metric("Predicted Score", f"{predicted:.0f} runs")
-            
-            with col2:
-                st.metric("Score Range", f"{predicted:.0f} to {upper_bound:.0f}")
-            
-            with col3:
-                increase = upper_bound - runs
-                st.metric("Max Expected", f"+{increase:.0f} runs")
-            
-            # Confidence info - only upper bound
+            # Confidence info - show range
             st.success(
-                f"🎯 **Expected Final Score: {predicted:.0f} to {upper_bound:.0f} runs**"
+                f"🎯 **Expected Final Score: {avg_score:.0f} runs**\n\n"
+                f"Based on range: {predicted:.0f} to {upper_bound:.0f} runs"
             )
     
     with tab2:
@@ -205,36 +190,32 @@ if model is not None:
         ]
         
         cols = st.columns(2)
+        std_error = np.std(y_pred - y_test)
         for idx, (r, w, o, s, ns, desc) in enumerate(examples):
             pred = predict_score(model, scaler, r, w, o, s, ns)
+            upper = pred + std_error
+            avg = (pred + upper) / 2
             with cols[idx % 2]:
                 st.markdown(f"**{desc}**")
                 st.write(f"📊 Match State:")
                 st.write(f"  • Runs: `{r}` | Wickets: `{w}` | Overs: `{o}`")
                 st.write(f"  • Striker: `{s}` | Non-striker: `{ns}`")
-                st.success(f"➜ **Predicted: {pred:.0f} runs**")
+                st.success(f"➜ **Expected: {avg:.0f} runs**")
     
     with tab3:
         st.markdown("### 📊 Model Information")
         
+        r2_score = model.score(scaler.transform(X_test), y_test) * 100
+        acc_10 = custom_accuracy(y_test, y_pred, 10)
+        acc_20 = custom_accuracy(y_test, y_pred, 20)
+        
         col1, col2 = st.columns(2)
         
         with col1:
-            st.markdown("**Performance Metrics**")
-            st.markdown(f"""
-            - **R-squared Score:** {r2_score:.2f}%
-            - **Accuracy (±10 runs):** {acc_10:.2f}%
-            - **Accuracy (±20 runs):** {acc_20:.2f}%
-            - **Mean Error:** {np.mean(y_pred - y_test):.2f} runs
-            - **Std Deviation:** {np.std(y_pred - y_test):.2f} runs
-            """)
-        
-        with col2:
             st.markdown("**Dataset Information**")
             st.markdown(f"""
-            - **Format:** {dataset_choice}
             - **Test Samples:** {len(y_test):,}
-            - **Algorithm:** Random Forest Regression
+            - **Algorithm:** Random Forest
             - **Features Used:** 5
               - Current runs
               - Wickets fallen
@@ -243,15 +224,15 @@ if model is not None:
               - Non-striker runs
             """)
         
-        st.markdown("---")
-        st.markdown("**Model Architecture**")
-        st.code("""
+        with col2:
+            st.markdown("**Model Architecture**")
+            st.code("""
 RandomForestRegressor(
     n_estimators=100,
     max_features=None,
     random_state=0
 )
-        """, language="python")
+            """, language="python")
 
 else:
     st.error("❌ Could not load the model. Please check that all CSV files are present.")
