@@ -171,25 +171,29 @@ if model is not None:
         
         if st.button("🎯 Predict Final Score", use_container_width=True, type="primary"):
             predicted = predict_score(model, scaler, runs, wickets, overs, striker, non_striker)
+            std_error = np.std(y_pred - y_test)
             
-            # Display result
+            # Calculate range
+            lower_bound = predicted - std_error
+            upper_bound = predicted + std_error
+            
+            # Display result with upper bound as main prediction
             col1, col2, col3 = st.columns(3)
             
             with col1:
-                st.metric("Predicted Score", f"{predicted:.0f} runs", delta=f"{predicted-runs:.0f} from current")
+                st.metric("Predicted Score", f"{upper_bound:.0f} runs")
             
             with col2:
-                std_error = np.std(y_pred - y_test)
-                st.metric("Error Margin", f"±{std_error:.0f} runs")
+                st.metric("Expected Range", f"{lower_bound:.0f} to {upper_bound:.0f}")
             
             with col3:
-                mean_error = np.mean(y_pred - y_test)
-                st.metric("Mean Error", f"{mean_error:.1f} runs")
+                increase = upper_bound - runs
+                st.metric("Expected Increase", f"+{increase:.0f} runs")
             
-            # Confidence info
-            st.info(
-                f"📌 **Based on {len(y_test):,} test samples:**\n"
-                f"The model predicts **{predicted:.0f} runs** as the final score with a typical error margin of **±{np.std(y_pred - y_test):.0f} runs**."
+            # Confidence info with range
+            st.success(
+                f"🎯 **Expected Final Score: {upper_bound:.0f} runs**\n\n"
+                f"Score Range: {lower_bound:.0f} to {upper_bound:.0f} runs"
             )
     
     with tab2:
