@@ -173,27 +173,25 @@ if model is not None:
             predicted = predict_score(model, scaler, runs, wickets, overs, striker, non_striker)
             std_error = np.std(y_pred - y_test)
             
-            # Calculate range
-            lower_bound = predicted - std_error
+            # Calculate upper bound only
             upper_bound = predicted + std_error
             
-            # Display result with upper bound as main prediction
+            # Display result
             col1, col2, col3 = st.columns(3)
             
             with col1:
-                st.metric("Predicted Score", f"{upper_bound:.0f} runs")
+                st.metric("Predicted Score", f"{predicted:.0f} runs")
             
             with col2:
-                st.metric("Expected Range", f"{lower_bound:.0f} to {upper_bound:.0f}")
+                st.metric("Score Range", f"{predicted:.0f} to {upper_bound:.0f}")
             
             with col3:
                 increase = upper_bound - runs
-                st.metric("Expected Increase", f"+{increase:.0f} runs")
+                st.metric("Max Expected", f"+{increase:.0f} runs")
             
-            # Confidence info with range
+            # Confidence info - only upper bound
             st.success(
-                f"🎯 **Expected Final Score: {upper_bound:.0f} runs**\n\n"
-                f"Score Range: {lower_bound:.0f} to {upper_bound:.0f} runs"
+                f"🎯 **Expected Final Score: {predicted:.0f} to {upper_bound:.0f} runs**"
             )
     
     with tab2:
